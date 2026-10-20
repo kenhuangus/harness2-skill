@@ -6,7 +6,7 @@ Source: `OPENCODE_SURFACE` in `harness2/substrate/opencode.py` at commit 1cfe254
 
 - c1 system prompt lives at `systemprompt.md`. It holds the role and the procedure and it is always on.
 
-- c2 guardrails live at `guardrails.md`. It holds the standing rules and it is always on. Harness2 writes automatic skill trigger lines into this file.
+- c2 guardrails live at `guardrails.md`. It holds the standing rules and it is always on. Harness² writes automatic skill trigger lines into this file.
 
 - c3 memory lives at `LongTermMEMORY.md`. It holds durable domain facts and it is always on.
 
@@ -24,7 +24,7 @@ Source: `OPENCODE_SURFACE` in `harness2/substrate/opencode.py` at commit 1cfe254
 
 - The four always-on files together are capped at 24,000 characters. Every token there competes with the agent's own output budget.
 
-- Every skill needs a trigger line naming it in `systemprompt.md` or `guardrails.md`, for example: When the situation this skill handles arises, load the `<name>` skill. Harness2 can add the line automatically, and a line that would break the cap is skipped instead.
+- Every skill needs a trigger line naming it in `systemprompt.md` or `guardrails.md`, for example: When the situation this skill handles arises, load the `<name>` skill. Harness² can add the line automatically, and a line that would break the cap is skipped instead.
 
 - Every script named in an always-on file or in a skill must ship in the same tree, at `scripts/<file>.py` or inside the skill that calls it.
 

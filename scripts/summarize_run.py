@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Summarize harness2 run output: ledgers, fallbacks, selections, lessons.
+"""Summarize Harness² run output: ledgers, fallbacks, selections, lessons.
 
 Reads summary.json files under a runs directory and EXPERIENCE.md lessons
 under an optional library directory. Makes no model calls and writes nothing
@@ -16,12 +16,24 @@ import json
 from pathlib import Path
 
 
-def _ledger_line(mode: str, record: dict) -> str:
+def _ledger_line(mode: str, record: dict, k: int | None) -> str:
     ledger = record.get("ledger") or {}
     stages = record.get("stages") or []
     fell = [stage.get("label") for stage in stages if stage.get("fell_back")]
     kept = [stage.get("label") for stage in stages if stage.get("kept_base")]
     parts = [f"mode {mode}: R={ledger.get('R')} P={ledger.get('P')} ok={record.get('ok')}"]
+    # The budget identity is R=4k rollouts and P=3k improver sessions per
+    # task and mode. A summary that breaks it is not trustworthy.
+    if isinstance(k, int) and k >= 1:
+        expected = (4 * k, 3 * k)
+        actual = (ledger.get("R"), ledger.get("P"))
+        if actual == expected:
+            parts.append("ledger identity OK")
+        else:
+            parts.append(f"LEDGER IDENTITY MISMATCH (expected R={expected[0]} P={expected[1]})")
+    spend = sum(float(stage.get("usd") or 0.0) for stage in stages)
+    if spend:
+        parts.append(f"improver spend ${spend:.2f}")
     parts.append(f"finals={record.get('finals')}")
     if fell:
         parts.append(f"fell_back={fell}")
@@ -33,7 +45,7 @@ def _ledger_line(mode: str, record: dict) -> str:
 def summarize(runs_dir: Path) -> tuple[str, list[dict]]:
     summaries = sorted(runs_dir.rglob("summary.json"))
     rows: list[dict] = []
-    lines: list[str] = [f"# Harness2 run summary: {runs_dir}", ""]
+    lines: list[str] = [f"# Harness² run summary: {runs_dir}", ""]
     if not summaries:
         lines.append("No summary.json files found. The run may not have finished a task.")
     for path in summaries:
@@ -46,7 +58,7 @@ def summarize(runs_dir: Path) -> tuple[str, list[dict]]:
         lines.append(f"## task {task} (status: {data.get('status')})")
         modes = data.get("modes") or data.get("arms") or {}
         for mode, record in sorted(modes.items()):
-            lines.append(_ledger_line(mode, record or {}))
+            lines.append(_ledger_line(mode, record or {}, data.get("k")))
         selections = data.get("selections") or {}
         for mode, sel in sorted(selections.items()):
             if not sel:

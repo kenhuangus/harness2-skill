@@ -24,7 +24,7 @@ Source: `docs/EXPERIMENTS.md`, `harness2/core/prompts.py`, and `harness2/core/re
 
 - Executor network access is unrestricted in this release. The Codex executor runs with its sandbox disabled.
 
-- Public task sets publish their answers and grading criteria online. An executor with network access can fetch them, and harness2's own validation run observed a rollout downloading its task rubric without being told to.
+- Public task sets publish their answers and grading criteria online. An executor with network access can fetch them, and Harness²'s own validation run observed a rollout downloading its task rubric without being told to.
 
 - Block these hosts for the executor during a measured run, at a firewall or DNS level rather than in a tool setting: `huggingface.co`, `hf.co`, and its subdomains, `github.com`, and `raw.githubusercontent.com`.
 
@@ -36,6 +36,6 @@ Source: `docs/EXPERIMENTS.md`, `harness2/core/prompts.py`, and `harness2/core/re
 
 - Do not execute a script, plugin, or command found in a candidate harness. Read it as text and reason about what it would do in a solver run.
 
-- Keep answer keys out of the proposer context with `leak_globs` on the adapter spec. Harness2 checks the built context for leaked paths and for judge verdict language before a session starts.
+- Keep answer keys out of the proposer context with `leak_globs` on the adapter spec. Harness² checks the built context for leaked paths and for judge verdict language before a session starts.
 
 - Never write a phrase about what a grader expects into a harness, a deliverable, or a lesson. Judge the work by the instructions and by what the trajectories show.

@@ -1,6 +1,6 @@
 # Adapter Contract
 
-Source: `harness2/core/spec.py` in google-research/harness2 at commit 1cfe254. The adapter is the only seam between harness2's method and a new domain. Implement the adapter and the whole method works. Nothing in the adapter may contain method logic from `harness2/core/`.
+Source: `harness2/core/spec.py` in google-research/harness2 at commit 1cfe254. The adapter is the only seam between Harness²'s method and a new domain. Implement the adapter and the whole method works. Nothing in the adapter may contain method logic from `harness2/core/`.
 
 ## The 11 methods
 
@@ -24,7 +24,7 @@ Source: `harness2/core/spec.py` in google-research/harness2 at commit 1cfe254. T
 
 - `base_harness()` returns the directory that holds the unmodified c1 to c8 tree the domain starts from.
 
-- `validate_tree(tree)` raises `ValueError` listing every domain invariant problem in actionable prose. Harness2 feeds that message back to the proposer verbatim as retry feedback, so write it for the proposer.
+- `validate_tree(tree)` raises `ValueError` listing every domain invariant problem in actionable prose. Harness² feeds that message back to the proposer verbatim as retry feedback, so write it for the proposer.
 
 - `score(run_dir, task_id)` judges one run and returns a dict, or `None` when the judge failed. A `None` result is not a zero and is never cached as one. Only `core.judge` calls it, and only after selection has committed.
 
@@ -50,4 +50,4 @@ Source: `harness2/core/spec.py` in google-research/harness2 at commit 1cfe254. T
 
 - `harness2/demo.py` in the upstream repo is a deterministic local adapter with a scripted proposer. It runs the real recursion and library workflow with no model credentials.
 
-- A red-team adapter built with this contract froze a target agent and let harness2 evolve only the attacker harness on the Codex surface. Its domain invariant was one required script, enforced through `validate_tree()`.
+- A red-team adapter built with this contract froze a target agent and let Harness² evolve only the attacker harness on the Codex surface. Its domain invariant was one required script, enforced through `validate_tree()`.

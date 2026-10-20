@@ -1,40 +1,38 @@
-"""Adapter template for a new harness2 domain.
+"""Adapter template for a new Harness² domain.
 
 Copy this file, rename the class, and fill in every TODO. The adapter is the
-only seam between harness2's method and your domain: implement the 11
-BenchmarkAdapter methods (plus score) and no method logic from harness2 core.
+only seam between Harness²'s method and your domain: implement the 11
+BenchmarkAdapter methods (plus score) and no method logic from Harness² core.
 
 Choose ONE substrate block and delete the other. Codex is the default.
 """
 
 from __future__ import annotations
 
-import subprocess
-import sys
 from pathlib import Path
 
 from harness2.core import tree as HT
 from harness2.core.spec import BenchPrompts, BenchSpec, ChannelSpec
 
 # --- Codex substrate (default) ---
+# Its always-on surface is AGENTS.md alone.
 from harness2.substrate.codex import CodexSubstrate
 
 SUBSTRATE = CodexSubstrate()
 INSTALL_MODE = "codex_root"
-ALWAYS_ON = ("AGENTS.md",)
 
 # --- OpenCode substrate (alternative) ---
+# Its always-on surface is systemprompt.md, guardrails.md, LongTermMEMORY.md,
+# and tool_descriptions/tool_guidance.md.
 # from harness2.substrate.opencode import OpencodeSubstrate
 # SUBSTRATE = OpencodeSubstrate()
 # INSTALL_MODE = "workspace_config"
-# ALWAYS_ON = ("systemprompt.md", "guardrails.md", "LongTermMEMORY.md",
-#               "tool_descriptions/tool_guidance.md")
 
 ROOT = Path(__file__).resolve().parent
 
 PROMPTS = BenchPrompts(
     # Describe the WORK in practitioner language. Do not use the words
-    # benchmark, evaluation, grader, rubric, or score here. Harness2 rejects
+    # benchmark, evaluation, grader, rubric, or score here. Harness² rejects
     # them in these slots.
     work="TODO: the work this domain does, in one plain sentence",
     inv_levers="TODO: levers that hold across every task in the domain",
@@ -83,7 +81,7 @@ class MyAdapter:
 
     def validate_tree(self, harness: HT.Tree) -> None:
         # Raise ValueError listing every problem in prose the proposer can
-        # act on. Harness2 feeds the message back verbatim on retry.
+        # act on. Harness² feeds the message back verbatim on retry.
         problems = []
         # Example: a file the domain cannot lose.
         # if "scripts/run_task.py" not in harness:

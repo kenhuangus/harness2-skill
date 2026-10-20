@@ -1,5 +1,5 @@
 name: harness2
-title: Harness2 Harness Optimizer
-description: Run Google's harness2 recursive harness optimization on a custom agent domain by scaffolding a BenchmarkAdapter, validating the c1 to c8 harness tree with harness2's own validator, and running a fail-closed Propose-Probe-Compose loop with a frozen model. Use when Ken asks to optimize, evolve, or self-improve an agent harness with harness2, build a harness2 adapter, or run a harness2 demo or sweep.
+title: Harness² Harness Optimizer
+description: Run Google's Harness² recursive harness optimization on a custom agent domain by scaffolding a BenchmarkAdapter, validating the c1 to c8 harness tree with Harness²'s own validator, and running a fail-closed Propose-Probe-Compose loop with a frozen model. Use when Ken asks to optimize, evolve, or self-improve an agent harness with Harness², build a Harness² adapter, or run a Harness² demo or sweep.
 category: Work and knowledge
 include_in_prompt: true

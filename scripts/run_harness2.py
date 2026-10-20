@@ -1,24 +1,34 @@
 #!/usr/bin/env python3
-"""Fail-closed wrapper around the harness2 command line tools.
+"""Fail-closed wrapper around the Harness² command line tools.
 
 Commands: demo, check, run, judge, report.
 
-- demo and check make no model calls and need no cap.
+- demo makes no model calls and needs no cap.
+- check needs a benchmark, for example `-- --bench lab`. It validates an
+  installed upstream benchmark. It does not work for a custom domain.
 - run and judge call models. They refuse to start without --cap-usd and an
-  --estimated-usd at or below the cap. Pass the harness2 flags after `--`,
-  for example:
-    python3 run_harness2.py --command run --cap-usd 5 --estimated-usd 2 \
-        -- --bench lab --k 1 --mode parallel --only-domains X --max-tasks 1
-- The wrapper prints the network and sandbox warning before a model-backed
-  run. It never reads or prints a credential value.
+  --estimated-usd at or below the cap. The estimate is a pre-flight gate,
+  not an in-flight control. After the command finishes, the wrapper tallies
+  the spend recorded in the new summary.json files and exits 3 when the
+  recorded total exceeds the cap. In-flight enforcement needs a provider
+  spend check between tasks. See references/safety-and-cost.md.
+- --dry-run is valid for the run command only. It never waives the cap gate
+  for judge, because harness2-judge has no dry-run mode.
+- report reads finished runs and calls no model.
+
+Pass the harness2 flags after `--`, for example:
+  python3 run_harness2.py --command run --cap-usd 5 --estimated-usd 2 \
+      -- --bench lab --k 1 --mode parallel --only-domains X --max-tasks 1
 """
 
 from __future__ import annotations
 
 import argparse
+import json
 import os
 import subprocess
 import sys
+import time
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -41,6 +51,38 @@ WARNING = (
 )
 
 
+def tally_recorded_spend(roots: list[Path], since: float) -> tuple[float, int]:
+    """Sum the improver spend recorded in summary.json files written since `since`.
+
+    Counts each mode's stage costs plus the selection cost in every summary
+    modified after the run started. Rollout cost recorded by a benchmark
+    adapter may not be in the summary, so treat the total as a floor.
+    """
+    total = 0.0
+    files = 0
+    seen: set[Path] = set()
+    for root in roots:
+        if not root or not Path(root).is_dir():
+            continue
+        for path in Path(root).rglob("summary.json"):
+            if path in seen or path.stat().st_mtime < since:
+                continue
+            seen.add(path)
+            try:
+                data = json.loads(path.read_text(encoding="utf-8"))
+            except (OSError, json.JSONDecodeError):
+                continue
+            files += 1
+            modes = data.get("modes") or data.get("arms") or {}
+            for record in modes.values():
+                for stage in (record or {}).get("stages") or []:
+                    total += float(stage.get("usd") or 0.0)
+            for sel in (data.get("selections") or {}).values():
+                if sel:
+                    total += float(sel.get("usd") or 0.0)
+    return total, files
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--command", choices=tuple(MODULES), default="check")
@@ -52,12 +94,31 @@ def main() -> int:
     parser.add_argument(
         "--dry-run",
         action="store_true",
-        help="preview only. Adds --dry-run for the run command and skips the cap gate",
+        help="preview only. Valid for the run command only, where it adds --dry-run",
     )
     args, extra = parser.parse_known_args()
-    passthrough = [item for item in extra if item != "--"]
+    passthrough = list(extra)
+    if passthrough and passthrough[0] == "--":
+        passthrough = passthrough[1:]
 
     root = find_harness2(args.harness2)
+
+    if args.dry_run and args.command != "run":
+        print(
+            f"REFUSED: --dry-run is only valid for the run command. The {args.command} "
+            "command has no dry-run mode in harness2, so running it would spend "
+            "for real. The cap gate is never waived by --dry-run."
+        )
+        return 2
+
+    if args.command == "check" and "--bench" not in passthrough:
+        print(
+            "REFUSED: the check command needs a benchmark, for example "
+            "`--command check -- --bench lab`. Check covers the upstream "
+            "benchmarks only (jb, lab, wb). For a custom domain, preflight is "
+            "validate_harness.py on the base tree plus the local demo."
+        )
+        return 2
 
     if args.command in PAID and not args.dry_run:
         if args.cap_usd is None:
@@ -79,9 +140,7 @@ def main() -> int:
                 f"${args.cap_usd:.2f}. Reduce k, the task selection, or raise the cap."
             )
             return 2
-        print(
-            f"Spend guard: estimate ${args.estimated_usd:.2f} within cap ${args.cap_usd:.2f}."
-        )
+        print(f"Spend guard: estimate ${args.estimated_usd:.2f} within cap ${args.cap_usd:.2f}.")
         print(WARNING)
 
     argv = [sys.executable, "-m", MODULES[args.command], *passthrough]
@@ -90,12 +149,38 @@ def main() -> int:
 
     env = dict(os.environ)
     env["PYTHONPATH"] = str(root) + os.pathsep + env.get("PYTHONPATH", "")
-    home_tmp = Path.home() / "tmp"
-    if "TMPDIR" not in env and home_tmp.is_dir():
+    if "TMPDIR" not in env:
+        # This machine's /tmp is a small tmpfs. A full sweep can fill it and
+        # fail in ways that look like code regressions. Keep temp work on disk.
+        home_tmp = Path.home() / "tmp"
+        home_tmp.mkdir(parents=True, exist_ok=True)
         env["TMPDIR"] = str(home_tmp)
 
+    started = time.time()
     print("Running:", " ".join(argv))
     completed = subprocess.run(argv, env=env, cwd=str(root))
+    if completed.returncode != 0:
+        return completed.returncode
+
+    if args.command in PAID and not args.dry_run and args.cap_usd is not None:
+        runs_env = env.get("HARNESS2_RUNS_DIR", "")
+        roots = [Path(runs_env).expanduser()] if runs_env else [root / "runs", Path.cwd() / "runs"]
+        total, files = tally_recorded_spend(roots, started - 5)
+        if files:
+            print(f"Recorded improver spend in {files} new summary file(s): ${total:.2f}.")
+            if total > args.cap_usd:
+                print(
+                    f"SPEND CAP EXCEEDED: recorded ${total:.2f} is above the cap "
+                    f"${args.cap_usd:.2f}. The gate is pre-flight and the tally is "
+                    "post-run, so this detects an overrun, it does not undo it. "
+                    "Add a provider spend check between tasks for in-flight control."
+                )
+                return 3
+        else:
+            print(
+                "Spend tally: no new summary.json found under the runs root, so the "
+                "recorded spend could not be checked against the cap."
+            )
     return completed.returncode
 
 

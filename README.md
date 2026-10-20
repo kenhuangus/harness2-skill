@@ -1,23 +1,23 @@
-# harness2 — a Muse skill for Google's Harness²
+# Harness² skill — run Google's Harness² on your own agent domain
 
-A skill that lets an agent run [Google's harness2](https://github.com/google-research/harness2) (recursive agent harnessing, arXiv:2610.14224) on a **custom domain** — not just the three benchmarks it ships with.
+A skill that lets an agent run [Google's Harness²](https://github.com/google-research/harness2) (recursive agent harnessing, arXiv:2610.14224) on a **custom domain** — not just the three benchmarks it ships with.
 
-Harness2 improves the system around a frozen model — system prompt, guardrails, memory, tool guidance, subagents, skills, scripts, plugins/hooks — through a contrastive **Propose–Probe–Compose** loop, then stores the adopted harness and an evidence-backed lesson in a per-domain library. This skill teaches the agent how to drive that loop safely on your own agent: a red-teamer, a gateway agent, a document agent, anything you can describe with an adapter.
+Harness² improves the system around a frozen model — system prompt, guardrails, memory, tool guidance, subagents, skills, scripts, plugins/hooks — through a contrastive **Propose–Probe–Compose** loop, then stores the adopted harness and an evidence-backed lesson in a per-domain library. This skill teaches the agent how to drive that loop safely on your own agent: a red-teamer, a gateway agent, a document agent, anything you can describe with an adapter.
 
 ## What the skill does
 
-1. **Preflight** — checks the environment and runs harness2's no-credential local demo before any model spend.
+1. **Preflight** — checks the environment and runs Harness²'s no-credential local demo before any model spend.
 2. **Scaffolds a new domain** — generates a `BenchmarkAdapter` implementation (the 11-method protocol from `harness2/core/spec.py`), a valid c1–c8 base harness tree for the Codex or OpenCode substrate, a scripted toy proposer, and a toy runner.
-3. **Validates with harness2's own validator** — `scripts/validate_harness.py` imports `harness2.core.tree.validate()`. It never reimplements it. Untriggered skills, frontmatter mismatches, missing scripts, over-cap always-on text, and malformed hooks are rejected with harness2's own error text.
+3. **Validates with Harness²'s own gates** — `scripts/validate_harness.py` runs the same three gates the recursion applies to a proposal: `harness2.core.tree.validate()`, the adapter `validate_tree()` when `--adapter` names one, and the grader-verdict leak tripwire. It reimplements none of them. The substrate is auto-detected from the tree. Untriggered skills, frontmatter mismatches, missing scripts, over-cap always-on text, malformed hooks, and grader-verdict markers are rejected with Harness²'s own error text.
 4. **Wires models explicitly** — solver, improver, and judge are separate settings. Vertex path or Codex Responses path (`HARNESS2_CODEX_BASE_URL/API_KEY/MODEL`, the route that works for OpenRouter). The skill requires a disclosure of what data leaves the machine before the first external call.
-5. **Runs fail-closed** — `scripts/run_harness2.py` refuses a model-backed run without an explicit spend cap and an estimate under it. Dry-run first, then `k=1`, one domain, `--max-tasks 1`. Per task and mode the loop costs `R=4k` rollouts and `P=3k` improver sessions.
+5. **Runs fail-closed** — `scripts/run_harness2.py` refuses a model-backed run without an explicit spend cap and an estimate under it, and `--dry-run` never waives the gate (it is valid for the run command only, because the judge has no dry-run mode). After a run, the wrapper tallies the spend recorded in the new summary files and reports an overrun. Dry-run first, then `k=1`, one domain, `--max-tasks 1`. Per task and mode the loop costs `R=4k` rollouts and `P=3k` improver sessions, and the summarizer flags any summary whose ledger breaks that identity.
 6. **Summarizes the result** — `scripts/summarize_run.py` reads the run ledgers, fallbacks, the chosen harness, and the library lessons, so the report is the diff and the lesson, not a claim.
 
 Safety rules encoded in the skill: no scores, rubrics, or judge verdicts ever reach a proposer or selector; candidate scripts/plugins/hooks are read as text and never executed; every run warns that executor network access is unrestricted and the Codex sandbox is disabled.
 
 ## Install
 
-Clone harness2 (pinned at commit `1cfe254`) and this skill side by side:
+Clone Harness² (pinned at commit `1cfe254`) and this skill side by side:
 
 ```bash
 git clone https://github.com/google-research/harness2.git
@@ -50,7 +50,7 @@ The toy domain counts lines in a text file. Its base script drops blank lines, t
 |---|---|
 | `SKILL.md` | The skill itself: hard rules, the method, the workflow |
 | `skill.yaml` | Skill descriptor |
-| `scripts/validate_harness.py` | Validate a harness tree with harness2's own validator |
+| `scripts/validate_harness.py` | Validate a harness tree with Harness²'s own validator |
 | `scripts/scaffold_adapter.py` | Generate a toy domain: adapter + base harness + proposer + runner |
 | `scripts/run_harness2.py` | Fail-closed wrapper for demo / check / run / judge / report |
 | `scripts/summarize_run.py` | Summarize ledgers, selections, and library lessons from run output |
@@ -69,18 +69,19 @@ The toy domain counts lines in a text file. Its base script drops blank lines, t
 `tests/run_acceptance.py` verifies, with no model calls:
 
 1. The upstream demo at `k=2` finishes 2/0, every ledger reads `R=8, P=6`, the adopted totals are the known-correct `85.15` and `20.25`, and a rerun resumes with zero new executions.
-2. The validator rejects five broken trees, each with harness2's own error text.
+2. The validator rejects five broken trees, each with Harness²'s own error text.
 3. A scaffolded toy adapter validates and completes a `k=1` sequential run whose adopted deliverable is the corrected count, with a lesson recorded in the library.
 4. A regression tree from a real red-team adapter built on this contract validates unchanged (skipped when that local tree is absent).
 5. No secret-shaped string appears anywhere in the skill.
+6. The fix regressions: substrate auto-detect and wrong-surface rejection, the grader-verdict and adapter gates, strict clone discovery (an invalid `HARNESS2_HOME` is a hard error, never a silent fallback), the wrapper cap guards including the judge dry-run bypass, the spend tally, the summarizer ledger identity, scaffold `--force` substrate switching and `--domain` validation, an OpenCode toy run, and the Harness² naming rule.
 
 ## Upstream credit
 
-Harness2 is Google Research's work, licensed Apache 2.0:
+Harness² is Google Research's work, licensed Apache 2.0:
 
 > Xu et al., *Harness²: Recursive Agent Harnessing for an Open World*, arXiv:2610.14224, 2026.
 
-This skill contains no harness2 code. It drives a clone of the upstream repo and imports its validator at runtime.
+This skill contains no code from Harness². It drives a clone of the upstream repo and imports its validator at runtime.
 
 ## License
 

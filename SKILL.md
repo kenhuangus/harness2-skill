@@ -1,14 +1,16 @@
-# Harness2 Harness Optimizer
+# Harness² Harness Optimizer
 
-Use Google's harness2 (https://github.com/google-research/harness2, Apache 2.0, pinned at commit 1cfe254) to improve an agent harness while the model weights stay fixed. The harness is the editable system around the model. Harness2 improves it with a contrastive Propose-Probe-Compose loop and stores the lessons in a per-domain library.
+Use Google's Harness² (https://github.com/google-research/harness2, Apache 2.0, pinned at commit 1cfe254) to improve an agent harness while the model weights stay fixed. The harness is the editable system around the model. Harness² improves it with a contrastive Propose-Probe-Compose loop and stores the lessons in a per-domain library.
 
 This document is a Muse skill. A `SKILL.md` file inside a harness tree it produces is a different thing, component c6 of that harness. Keep the two meanings separate in every file and message.
 
 ## Hard rules
 
-- Clone harness2 and drive it as an external tool. Do not vendor its code into this skill or into a generated project.
+- Write the framework name as Harness², with the 2 as a superscript, in prose, titles, and descriptions. Keep the spelling `harness2` only for code identifiers that must match the upstream project: the repo and package name, module paths, CLI commands, environment variables, directory names, and file paths.
 
-- Import `harness2.core.tree.validate()` and call the adapter `validate_tree()` for every validation. Do not reimplement the validator.
+- Clone Harness² and drive it as an external tool. Do not vendor its code into this skill or into a generated project.
+
+- Import `harness2.core.tree.validate()` for the surface gate, run the adapter `validate_tree()` gate whenever an adapter exists, and run the grader-verdict tripwire on every tree. Do not reimplement any of the three.
 
 - State why an external model service is needed and exactly what data will be sent to it before the first call to that service. Task prompts, trajectories, deliverables, and harness files are the data that leave the machine in a model-backed run.
 
@@ -28,7 +30,7 @@ This document is a Muse skill. A `SKILL.md` file inside a harness tree it produc
 
 - Propose candidate edits. Parallel mode proposes `k` invariant and `k` domain candidates from the shared evidence, probes each one, then composes `k` finals. Sequential mode runs `k` Propose-Probe-Compose steps and carries the refined harness forward.
 
-- Validate each proposal with harness2's own gate. An invalid proposal gets one retry with the error fed back, then falls back to the current harness.
+- Validate each proposal with Harness²'s own gate. An invalid proposal gets one retry with the error fed back, then falls back to the current harness.
 
 - Select one final without ground truth. Selection candidates are anonymised and shuffled. At `k=1` the single final is adopted without a selector session.
 
@@ -38,35 +40,39 @@ This document is a Muse skill. A `SKILL.md` file inside a harness tree it produc
 
 ## Workflow
 
-## Preflight
+### Preflight
 
-- Check Linux, Python 3.12, `uv`, Node 20 or newer, and `git` with `scripts/run_harness2.py --command check`.
+- Check Linux, Python 3.12, `uv`, Node 20 or newer, and `git` are present.
 
-- Clone harness2 at the pinned commit if no clone exists. Record the clone path as `HARNESS2_HOME`.
+- Clone Harness² at the pinned commit if no clone exists. Record the clone path as `HARNESS2_HOME`. A set but invalid `HARNESS2_HOME` is a hard error in the scripts, never a silent fallback to another clone.
 
 - Run the local demo before any model spend. The demo needs no credentials.
 
-## Scaffold a new domain
+- Use `scripts/run_harness2.py --command check -- --bench <jb|lab|wb>` only for an installed upstream benchmark. Check does not cover a custom domain. For a custom domain, preflight is the validator on the base tree plus the demo plus a dry run.
+
+### Scaffold a new domain
 
 - Run `scripts/scaffold_adapter.py --name <slug> --work "<the work in plain words>" --output <dir>` to generate an adapter, a base harness tree, a scripted toy proposer, and a toy runner.
 
-- Read `references/adapter-contract.md` before you edit the generated adapter. Implement all 11 `BenchmarkAdapter` methods and no method logic from harness2 core.
+- Read `references/adapter-contract.md` before you edit the generated adapter. Implement all 11 `BenchmarkAdapter` methods and no method logic from Harness² core.
 
-- Describe the work as work in `BenchPrompts`. Do not put the words benchmark, evaluation, grader, rubric, or score in the prompt slots. Harness2 rejects them.
+- Describe the work as work in `BenchPrompts`. Do not put the words benchmark, evaluation, grader, rubric, or score in the prompt slots. Harness² rejects them.
 
 - Set `leak_globs` for every answer key or reference file so it can never reach a proposer context.
 
 - Read `references/components-opencode.md` or `references/components-codex.md` for the substrate you chose. The 8 components map to different files and different always-on caps on each substrate.
 
-## Validate a harness tree
+### Validate a harness tree
 
-- Run `scripts/validate_harness.py <tree_dir> --substrate cx` for Codex or `--substrate oc` for OpenCode.
+- Run `scripts/validate_harness.py <tree_dir>`. The substrate is detected from the tree, an `AGENTS.md` means Codex and a `systemprompt.md` means OpenCode. Pass `--substrate cx` or `--substrate oc` only to override the detection.
 
 - Add `--require-file <path>` for every file the domain cannot lose, for example the one script that reaches the target system.
 
-- Fix every error the validator returns and run it again. The error text is written for the proposer, so it tells you exactly what to change.
+- Add `--adapter <adapter.py:ClassName>` to run the adapter `validate_tree()` gate as well. The validator always runs the surface gate and the grader-verdict leak tripwire, the same three gates the recursion applies to a proposal.
 
-## Wire the models
+- Fix every error the validator returns and run it again. The error text is written for the proposer, so it tells you exactly what to change. This pre-flight check is stricter than the recursion on one point: the recursion repairs a missing skill trigger line automatically, the validator reports it.
+
+### Wire the models
 
 - Read `references/models-and-env.md` before you set a model. The solver, the improver, and the judge are three separate settings.
 
@@ -74,9 +80,9 @@ This document is a Muse skill. A `SKILL.md` file inside a harness tree it produc
 
 - State the external-service disclosure from the hard rules before the first model call.
 
-## Run, judge, and report
+### Run, judge, and report
 
-- Run `scripts/run_harness2.py --command run --cap-usd <cap> --estimated-usd <estimate>` and pass the harness2 flags after `--`. The wrapper refuses to start when the estimate exceeds the cap.
+- Run `scripts/run_harness2.py --command run --cap-usd <cap> --estimated-usd <estimate>` and pass the harness2 flags after `--`. The wrapper refuses to start when the estimate exceeds the cap, and `--dry-run` never waives the gate. The estimate gate is pre-flight only. After the run the wrapper tallies the spend recorded in the new summary files and reports an overrun. In-flight enforcement needs a provider spend check between tasks.
 
 - Judge and report with the same benchmark, substrate, `k`, mode, and seed as the run. A mismatch makes the results incomparable.
 
@@ -84,9 +90,9 @@ This document is a Muse skill. A `SKILL.md` file inside a harness tree it produc
 
 - Read `references/safety-and-cost.md` before a run on public task data. Block the hosts that publish task answers and grading criteria at the network level.
 
-## Interpret the result
+### Interpret the result
 
-- Run `scripts/summarize_run.py <runs_dir>` to read every `summary.json`, the per-mode ledger, the fallbacks, the chosen harness, and the library lessons.
+- Run `scripts/summarize_run.py <runs_dir>` to read every `summary.json`, the per-mode ledger, the fallbacks, the chosen harness, and the library lessons. It flags any summary whose ledger breaks the `R=4k` and `P=3k` identity. Do not trust a flagged summary.
 
 - Report which of the 8 components changed, which stages fell back or kept the base, and what lesson the library retained. Give the diff, not a general claim about improvement.
 
@@ -94,7 +100,7 @@ This document is a Muse skill. A `SKILL.md` file inside a harness tree it produc
 
 ## Scripts
 
-- Run `python3 scripts/validate_harness.py --help` for the validator options. It prints the harness census as JSON on success and harness2's own error text on failure.
+- Run `python3 scripts/validate_harness.py --help` for the validator options. It prints the harness census as JSON on success and Harness²'s own error text on failure.
 
 - Run `python3 scripts/scaffold_adapter.py --help` for the scaffold options. It refuses a work description that contains a measurement word.
 

@@ -16,7 +16,7 @@ Source: `CODEX_SURFACE` in `harness2/substrate/codex.py` at commit 1cfe254. Inst
 
 ## Caps and rules that discard a whole proposal
 
-- `AGENTS.md` is capped at 8,000 characters by harness2 validation. Codex itself truncates it silently at 32,768 bytes, so the harness2 cap is the binding one.
+- `AGENTS.md` is capped at 8,000 characters by Harness² validation. Codex itself truncates it silently at 32,768 bytes, so the Harness² cap is the binding one.
 
 - An empty `AGENTS.md` is rejected. On this surface an empty always-on file is a harness that does not exist.
 
