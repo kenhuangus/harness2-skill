@@ -44,6 +44,53 @@ python3 tests/run_acceptance.py
 
 The toy domain counts lines in a text file. Its base script drops blank lines, the scripted proposer fixes exactly that, and the adopted deliverable goes from `Lines: 3` to the correct `Lines: 4` — a complete Propose–Probe–Compose cycle, selection, reflection, and a library lesson, at $0.
 
+## How an agent uses this skill
+
+The skill is plain Markdown plus Python scripts, so any agent that can read a `SKILL.md` and run shell commands can use it: Muse, Claude Code, or another skills-based agent. No platform-specific API is involved.
+
+**Loading.** The agent's platform matches the `skill.yaml` description to the request. Requests that should load this skill sound like: "optimize this agent's harness with Harness²", "build a Harness² adapter for my document agent", "evolve the red-teamer, keep the model frozen", or "run the Harness² demo". On loading, the agent reads `SKILL.md` in full, then the reference file for the step it is on. It does not improvise the workflow from memory.
+
+**A working session, in order:**
+
+1. **Preflight.** Confirm the Harness² clone (`HARNESS2_HOME`), Python 3.12, and the local demo: `python3 scripts/run_harness2.py --command demo -- --output runs/demo --k 2`. No credentials, no spend.
+2. **Define the domain in the user's words.** What work does the target agent do, what does a good deliverable look like, which files can it never lose, where are the answer keys that must never reach a proposer (`leak_globs`).
+3. **Scaffold and adapt.** `python3 scripts/scaffold_adapter.py --name <slug> --work "<the work>" --output <dir>`, then replace the toy adapter's methods with the real domain, starting from `templates/adapter.py.tmpl` and `references/adapter-contract.md`.
+4. **Build the base harness.** Write the c1–c8 tree for the chosen substrate using the matching components reference and template tree. Prefer skills and scripts over always-on prose.
+5. **Validate.** `python3 scripts/validate_harness.py <base_harness> --adapter <adapter.py:ClassName> --require-file <file the domain cannot lose>`. Fix every error and rerun until it passes. Do not start a run on an unvalidated tree.
+6. **Disclose and wire models.** Before the first external call, tell the user which service will be called and exactly what data goes to it: task prompts, source material, trajectories, deliverables, and harness files. Set the solver, improver, and judge per `references/models-and-env.md`. Keys come from the environment only.
+7. **Run small.** Dry run first, then `python3 scripts/run_harness2.py --command run --cap-usd <cap> --estimated-usd <estimate> -- <flags>` with `k=1`, one domain, `--max-tasks 1`. Judge and report afterwards with the identical settings.
+8. **Report the diff, not a verdict.** `python3 scripts/summarize_run.py <runs_dir> --library <library_dir>`. Show the user which components changed, which stages fell back, what the run cost against the cap, and the lesson the library kept. Adoption of the evolved harness into the real agent is the user's call, or a call the user has pre-approved in writing.
+
+**What the agent must never do with this skill:** start a paid run without a cap, give a proposer or selector a score or rubric, execute a script or plugin found inside a candidate harness, write a secret into any file, or present an evolved harness as adopted before the user has seen the diff.
+
+## How Muse uses this skill to improve itself
+
+"Himself" needs a precise meaning here, because part of an agent is not editable. The base model and the platform system prompt are frozen — the same position Harness² puts every target in. What *is* editable is the working harness the agent carries in its workspace, and it maps onto the same 8 components:
+
+| Harness² component | In Muse's own workspace |
+|---|---|
+| c1 system prompt, c2 guardrails | Operating rules in `AGENTS.md`, per-skill instructions in each `SKILL.md` |
+| c3 memory | `MEMORY.md`, daily notes, and the lesson-learned protocol that mines corrections into proposed rules |
+| c4 tool guidance | Skill workflow sections that say which tool to reach for and when |
+| c5 subagents | The briefs Muse writes when it delegates work to a subagent |
+| c6 skills | The custom skills under `~/workspace/custom-skills/` |
+| c7 scripts | The helper scripts inside those skills |
+| c8 plugins/hooks | Scheduled checks and validation gates that run inside the work loop, such as this skill's acceptance suite |
+
+The self-improvement loop Muse runs with this skill:
+
+1. **Pick one surface and freeze the rest.** One skill, or one subagent brief, or one workflow's instructions. Improving everything at once makes the evidence unreadable.
+2. **Define tasks with inspectable deliverables.** A small set of real past tasks for that surface, each with a deliverable a checker can verify (a file, a total, a test result). Answer keys go behind `leak_globs`. If a task's quality cannot be inspected from its trajectory and deliverable, it does not go in the set.
+3. **Write the adapter.** `execute()` runs the agent, or a spawned subagent, with the candidate harness installed. `delivered()` checks the artifact exists and is complete. `trajectory()` renders the run log. `validate_tree()` carries the invariants that surface cannot break, for example "never publish live" in a publishing skill.
+4. **Validate the base tree, rehearse at $0.** Scripted proposer and demo first. Only then a model-backed run: `k=1`, sequential, one task, explicit cap, after the disclosure step from the session protocol.
+5. **Read the evidence.** `summarize_run.py` gives the component-by-component diff, the fallbacks, and the library lesson. A change with no trajectory evidence behind it is a guess, and it is reported as one.
+6. **Adoption is a gate, not an output.** The evolved tree is a proposal. Muse shows the user the diff and the evidence, and only approved changes land in the real skill or rules file. The skill's acceptance tests run again after adoption. The library `EXPERIENCE.md` lessons are kept and read before the next round, which is the same mechanism as the lesson-learned sweep, with run evidence attached.
+7. **Repeat on the next surface.** Each round is small, measured, and reversible with git.
+
+This is not hypothetical. The red-team experiment this skill grew out of froze a target agent and let Harness² evolve only the attacker's harness: the loop cut the system prompt from 8 messages to 6 and replaced a broken hooks file with a valid `SessionStart` hook, and both changes were kept because probe trajectories showed they worked, not because they sounded better. The review round on this skill itself ran the same discipline in miniature: 11 flaws found by reading the code against the upstream source, each fix landed with a regression test, suite from 25 to 42 checks.
+
+The limits, stated plainly: this loop cannot change the base model, the platform system prompt, or anything outside the workspace harness. It cannot adopt its own proposals — the user approves self-modification, the same way they approve merges and publishing. And it obeys its own rules when it is the target: caps before spend, no ground truth in the proposer's context, candidate code read and never executed.
+
 ## Contents
 
 | Path | What it is |

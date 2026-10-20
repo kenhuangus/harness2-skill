@@ -82,7 +82,7 @@ This document is a Muse skill. A `SKILL.md` file inside a harness tree it produc
 
 ### Run, judge, and report
 
-- Run `scripts/run_harness2.py --command run --cap-usd <cap> --estimated-usd <estimate>` and pass the harness2 flags after `--`. The wrapper refuses to start when the estimate exceeds the cap, and `--dry-run` never waives the gate. The estimate gate is pre-flight only. After the run the wrapper tallies the spend recorded in the new summary files and reports an overrun. In-flight enforcement needs a provider spend check between tasks.
+- Run `scripts/run_harness2.py --command run --cap-usd <cap> --estimated-usd <estimate>` and pass the upstream CLI flags after `--`. The wrapper refuses to start when the estimate exceeds the cap, and `--dry-run` never waives the gate. The estimate gate is pre-flight only. After the run the wrapper tallies the spend recorded in the new summary files and reports an overrun. In-flight enforcement needs a provider spend check between tasks.
 
 - Judge and report with the same benchmark, substrate, `k`, mode, and seed as the run. A mismatch makes the results incomparable.
 
