@@ -1,0 +1,119 @@
+"""Adapter template for a new harness2 domain.
+
+Copy this file, rename the class, and fill in every TODO. The adapter is the
+only seam between harness2's method and your domain: implement the 11
+BenchmarkAdapter methods (plus score) and no method logic from harness2 core.
+
+Choose ONE substrate block and delete the other. Codex is the default.
+"""
+
+from __future__ import annotations
+
+import subprocess
+import sys
+from pathlib import Path
+
+from harness2.core import tree as HT
+from harness2.core.spec import BenchPrompts, BenchSpec, ChannelSpec
+
+# --- Codex substrate (default) ---
+from harness2.substrate.codex import CodexSubstrate
+
+SUBSTRATE = CodexSubstrate()
+INSTALL_MODE = "codex_root"
+ALWAYS_ON = ("AGENTS.md",)
+
+# --- OpenCode substrate (alternative) ---
+# from harness2.substrate.opencode import OpencodeSubstrate
+# SUBSTRATE = OpencodeSubstrate()
+# INSTALL_MODE = "workspace_config"
+# ALWAYS_ON = ("systemprompt.md", "guardrails.md", "LongTermMEMORY.md",
+#               "tool_descriptions/tool_guidance.md")
+
+ROOT = Path(__file__).resolve().parent
+
+PROMPTS = BenchPrompts(
+    # Describe the WORK in practitioner language. Do not use the words
+    # benchmark, evaluation, grader, rubric, or score here. Harness2 rejects
+    # them in these slots.
+    work="TODO: the work this domain does, in one plain sentence",
+    inv_levers="TODO: levers that hold across every task in the domain",
+    dom_levers="TODO: levers that are specific to one kind of task",
+    yardstick="TODO: what a good deliverable looks like, as the task states it",
+)
+
+
+class MyAdapter:
+    """TODO: rename. One instance serves one (domain, substrate) cell."""
+
+    def __init__(self, root: Path):
+        self.root = Path(root).resolve()
+        self.substrate = SUBSTRATE
+        channel = ChannelSpec("opencode", "local/deterministic")
+        self.spec = BenchSpec(
+            name="TODO-domain-slug",
+            runs_root=self.root / "runs",
+            install_mode=INSTALL_MODE,
+            prompts=PROMPTS,
+            channels={"proposer": channel, "selector": channel},
+            domain_word="domain",
+            leak_globs=("reference_answer.txt",),  # TODO: every answer key
+            allow_subagents=False,  # TODO: True only if the domain uses c5
+        )
+
+    # ---- task stream ----
+    def tasks(self, split: str = "all") -> list[str]:
+        # Stable order. Library state must be reproducible.
+        return ["task-1"]  # TODO
+
+    def domain_of(self, task_id: str) -> str:
+        return "TODO-domain"  # TODO
+
+    def task_prompt(self, task_id: str) -> str:
+        # The task as the agent received it, criteria and expected output
+        # stripped out.
+        return "TODO: task text"  # TODO
+
+    def task_files(self, task_id: str) -> Path | None:
+        return self.root / "sources" / task_id  # TODO or None
+
+    # ---- harness ----
+    def base_harness(self) -> Path:
+        return ROOT / "base_harness"  # TODO: a valid c1 to c8 tree
+
+    def validate_tree(self, harness: HT.Tree) -> None:
+        # Raise ValueError listing every problem in prose the proposer can
+        # act on. Harness2 feeds the message back verbatim on retry.
+        problems = []
+        # Example: a file the domain cannot lose.
+        # if "scripts/run_task.py" not in harness:
+        #     problems.append("scripts/run_task.py is required ...")
+        if problems:
+            raise ValueError(" | ".join(problems))
+
+    # ---- execution ----
+    def execute(
+        self, task_id: str, harness_dir: Path | None, run_id: str, *, timeout: int | None = None
+    ) -> Path:
+        # Run one rollout, idempotently by run_id, and return its directory.
+        # harness_dir=None means the unmodified base harness.
+        raise NotImplementedError("TODO: run the agent under this harness")
+
+    def delivered(self, run_dir: Path) -> bool:
+        return (Path(run_dir) / "answer.txt").is_file()  # TODO
+
+    def trajectory(self, run_dir: Path, *, obs_trunc: int) -> str:
+        # Shared grammar: [ACTION] / [OBSERVATION] / [ERROR] lines.
+        return (Path(run_dir) / "trajectory.md").read_text(encoding="utf-8")
+
+    def deliverable_files(self, run_dir: Path) -> dict[str, str]:
+        return {"answer.txt": self.deliverable_text(run_dir)}  # TODO
+
+    def deliverable_text(self, run_dir: Path) -> str:
+        # Extracted from agent-authored bytes only.
+        return (Path(run_dir) / "answer.txt").read_text(encoding="utf-8")
+
+    # ---- judging, called only by core.judge after selection commits ----
+    def score(self, run_dir: Path, task_id: str) -> dict | None:
+        # Return None when the judge fails. None is not a zero.
+        return None  # TODO: wire a real judge, or leave None for manual use
